@@ -73,6 +73,23 @@
   a.tool.ensamblar .fase, a.tool.ensamblar .go{color:var(--phosphor)}
   a.tool.ensamblar:hover{border-color:var(--phosphor);background:rgba(124,227,160,.05)}
 
+  /* Fase 0: descarga del proyecto base */
+  a.base{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    text-decoration:none;color:var(--text);
+    background:var(--bg-panel);border:1px solid var(--phosphor-dim);
+    border-left:3px solid var(--phosphor);padding:16px 18px;margin-bottom:22px;
+    transition:transform .15s, background .15s}
+  a.base:hover{transform:translateY(-2px);background:rgba(124,227,160,.05)}
+  a.base:focus-visible{outline:2px solid var(--phosphor);outline-offset:2px}
+  a.base .zip{font-size:26px;color:var(--phosphor);flex:none}
+  a.base .bt{flex:1;min-width:240px}
+  a.base .fase{font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--phosphor);margin-bottom:4px}
+  a.base h2{font-size:15px;font-weight:700;margin-bottom:4px}
+  a.base p{font-size:12px;color:var(--text-dim);line-height:1.6}
+  a.base .dl{flex:none;font-size:12.5px;font-weight:700;color:#0b1410;
+    background:var(--phosphor);padding:9px 18px;letter-spacing:.04em}
+
   /* Recordatorio del método */
   .metodo{margin-top:34px;border:1px solid var(--line);background:var(--bg-panel)}
   .metodo .mh{padding:11px 16px;border-bottom:1px solid var(--line);
@@ -109,6 +126,20 @@
     <span class="arrow">→</span>
     <span class="step">reemplazar en el sketch → compilar</span>
   </div>
+
+  <!-- Fase 0: punto de partida -->
+  <a class="base" href="proyecto_base.zip" download>
+    <span class="zip" aria-hidden="true">⬇</span>
+    <span class="bt">
+      <span class="fase">Fase 0 · Punto de partida</span>
+      <h2>Descargar proyecto_base.zip</h2>
+      <p>Plantilla de proyecto con CERO hardware: infraestructura plug-and-play
+         (gestor de módulos, bus de eventos, I2C + mutex) + heartbeat de vida y
+         esqueleto de módulo. Descomprimir, renombrar carpeta y <code>.ino</code>
+         con el mismo nombre, compilar — y empezar a agregar hardware.</p>
+    </span>
+    <span class="dl">DESCARGAR .ZIP</span>
+  </a>
 
   <!-- Tarjetas -->
   <div class="tools">
@@ -159,6 +190,7 @@
   <div class="metodo">
     <div class="mh">Reglas de oro del flujo</div>
     <div class="mb">
+      <b>0.</b> Todo proyecto nuevo parte de <b>proyecto_base.zip</b>: nunca construir la infraestructura a mano.<br>
       <b>1.</b> Las tres primeras herramientas generan el prompt; el código siempre lo escribe Claude.<br>
       <b>2.</b> La respuesta de cualquiera de las tres se procesa con el mismo <b>Ensamblador</b>.<br>
       <b>3.</b> Tras agregar o borrar archivos del sketch: <b>cerrar y reabrir Arduino IDE</b> antes de compilar.<br>
