@@ -3,596 +3,174 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Prompt Builder — Módulos FreeRTOS (proyecto_base)</title>
+<title>Plantilla FreeRTOS — Banco de herramientas</title>
 <style>
-  /* ============================================================
-     Estética: banco de trabajo / PCB. Fondo verde-carbón de
-     máscara de soldadura, acento cobre de pistas, texto fósforo
-     de monitor serial. Tipografía 100% monoespaciada (offline).
-     Firma: la navegación ES una máquina de estados — los pasos
-     del formulario se recorren como estados con transiciones.
-     ============================================================ */
+  /* Identidad del banco de trabajo. El index es el TABLERO:
+     cada herramienta con el color de su fase del ciclo de vida
+     (cobre=crear, ámbar=modificar, rojo=eliminar, fósforo=ensamblar). */
   :root{
-    --bg:        #0e1411;
-    --bg-panel:  #131b17;
-    --bg-field:  #0a100d;
-    --line:      #24332b;
-    --line-soft: #1a2620;
-    --copper:    #d18a4b;
-    --copper-dim:#8a5a30;
-    --phosphor:  #7ce3a0;
-    --phosphor-dim:#3f7a58;
-    --text:      #cfd9d2;
-    --text-dim:  #7d8c83;
-    --warn:      #e0b14b;
-    --error:     #e06a5a;
-    --mono: "Cascadia Code","JetBrains Mono","Fira Code",ui-monospace,
-            "SF Mono",Consolas,Menlo,monospace;
+    --bg:#0e1411; --bg-panel:#131b17; --bg-field:#0a100d;
+    --line:#24332b; --line-soft:#1a2620;
+    --copper:#d18a4b; --amber:#e0b14b; --rojo:#e06a5a;
+    --phosphor:#7ce3a0; --phosphor-dim:#3f7a58;
+    --text:#cfd9d2; --text-dim:#7d8c83;
+    --mono:"Cascadia Code","JetBrains Mono","Fira Code",ui-monospace,"SF Mono",Consolas,Menlo,monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  @media (prefers-reduced-motion: reduce){
-    html{scroll-behavior:auto}
-    *{transition:none !important;animation:none !important}
-  }
-  body{
-    background:var(--bg);
-    background-image:
-      linear-gradient(var(--line-soft) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
-    background-size:32px 32px;
-    color:var(--text);
-    font-family:var(--mono);
-    font-size:14px;
-    line-height:1.55;
-    min-height:100vh;
-  }
-
-  /* ---------- Cabecera ---------- */
-  header{
-    border-bottom:1px solid var(--line);
-    background:linear-gradient(180deg, #121a16 0%, var(--bg) 100%);
-    padding:22px 24px 18px;
-  }
-  .hwrap{max-width:1180px;margin:0 auto;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
-  h1{font-size:17px;font-weight:700;letter-spacing:.04em;color:var(--phosphor)}
-  h1 .cursor{display:inline-block;width:9px;height:16px;background:var(--phosphor);
-    vertical-align:-2px;margin-left:4px;animation:blink 1.1s steps(1) infinite}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  body{background:var(--bg);
+    background-image:linear-gradient(var(--line-soft) 1px,transparent 1px),
+      linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+    background-size:32px 32px;color:var(--text);font-family:var(--mono);
+    font-size:14px;line-height:1.55;min-height:100vh}
+  header{border-bottom:1px solid var(--line);padding:26px 24px 20px;
+    background:linear-gradient(180deg,#121a16 0%,var(--bg) 100%)}
+  .hwrap{max-width:900px;margin:0 auto}
+  h1{font-size:19px;font-weight:700;letter-spacing:.04em;color:var(--phosphor)}
+  h1 .cursor{display:inline-block;width:10px;height:17px;background:var(--phosphor);
+    vertical-align:-2px;margin-left:5px;animation:blink 1.1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
-  .htag{color:var(--text-dim);font-size:12px}
-  .htag b{color:var(--copper);font-weight:600}
+  .sub{color:var(--text-dim);font-size:12px;margin-top:6px}
+  .sub b{color:var(--copper)}
+  main{max-width:900px;margin:0 auto;padding:30px 24px 80px}
 
-  /* ---------- Layout ---------- */
-  .layout{max-width:1180px;margin:0 auto;display:grid;
-    grid-template-columns:230px 1fr;gap:0;align-items:start}
+  /* Diagrama del flujo */
+  .flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;
+    border:1px dashed var(--phosphor-dim);padding:14px 18px;margin-bottom:34px;
+    font-size:11px;color:var(--text-dim)}
+  .flow .step{padding:4px 10px;border:1px solid var(--line);background:var(--bg-field)}
+  .flow .arrow{padding:0 8px;color:var(--phosphor-dim)}
+  .flow .c1{color:var(--copper)} .flow .c2{color:var(--amber)}
+  .flow .c3{color:var(--rojo)} .flow .c4{color:var(--phosphor)}
 
-  /* ---------- Rail: máquina de estados (firma) ---------- */
-  nav.fsm{
-    position:sticky;top:0;padding:28px 18px 28px 24px;
-    align-self:start;
-  }
-  .fsm-title{font-size:10px;letter-spacing:.18em;color:var(--text-dim);
-    text-transform:uppercase;margin-bottom:14px}
-  .state{
-    display:flex;align-items:center;gap:10px;
-    padding:7px 0;cursor:pointer;color:var(--text-dim);
-    text-decoration:none;font-size:12.5px;
-    transition:color .15s;
-  }
-  .state:hover{color:var(--text)}
-  .state .node{
-    width:13px;height:13px;border:1.5px solid var(--phosphor-dim);
-    border-radius:50%;flex:none;position:relative;background:var(--bg);
-    transition:all .15s;
-  }
-  .state.done .node{border-color:var(--phosphor);background:var(--phosphor)}
-  .state.active{color:var(--phosphor)}
-  .state.active .node{border-color:var(--phosphor);box-shadow:0 0 0 3px rgba(124,227,160,.18)}
-  .edge{width:1.5px;height:16px;background:var(--phosphor-dim);margin-left:5.5px}
-  .state small{color:var(--copper);font-size:10px;margin-left:auto}
-  .fsm-note{margin-top:18px;font-size:10.5px;color:var(--text-dim);
-    border-left:2px solid var(--copper-dim);padding-left:10px}
+  /* Tarjetas de herramientas */
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  a.tool{display:block;text-decoration:none;color:var(--text);
+    background:var(--bg-panel);border:1px solid var(--line);
+    border-top:3px solid var(--line);padding:18px;
+    transition:transform .15s, border-color .15s, background .15s}
+  a.tool:hover{transform:translateY(-2px)}
+  a.tool:focus-visible{outline:2px solid var(--phosphor);outline-offset:2px}
+  a.tool .fase{font-size:10px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:8px}
+  a.tool h2{font-size:15px;font-weight:700;margin-bottom:8px}
+  a.tool p{font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:12px}
+  a.tool .file{font-size:10.5px;color:var(--phosphor-dim)}
+  a.tool .go{font-size:12px;margin-top:10px;display:block}
 
-  /* ---------- Panel principal ---------- */
-  main{padding:28px 24px 80px;border-left:1px solid var(--line);min-width:0}
-  section{
-    background:var(--bg-panel);
-    border:1px solid var(--line);
-    margin-bottom:26px;
-    scroll-margin-top:16px;
-  }
-  .sec-head{
-    display:flex;align-items:baseline;gap:12px;
-    padding:13px 18px;border-bottom:1px solid var(--line);
-    background:rgba(209,138,75,.05);
-  }
-  .sec-id{color:var(--copper);font-weight:700;font-size:13px;letter-spacing:.06em}
-  .sec-head h2{font-size:13.5px;font-weight:600;letter-spacing:.02em}
-  .sec-head .hint{margin-left:auto;font-size:10.5px;color:var(--text-dim)}
-  .sec-body{padding:18px}
+  a.tool.crear{border-top-color:var(--copper)}
+  a.tool.crear .fase, a.tool.crear .go{color:var(--copper)}
+  a.tool.crear:hover{border-color:var(--copper);background:rgba(209,138,75,.05)}
 
-  /* ---------- Campos ---------- */
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
-  .field{margin-bottom:14px;min-width:0}
-  label{display:block;font-size:11px;color:var(--text-dim);
-    letter-spacing:.05em;margin-bottom:5px}
-  label b{color:var(--copper)}
-  input[type=text],select,textarea{
-    width:100%;background:var(--bg-field);border:1px solid var(--line);
-    color:var(--text);font-family:var(--mono);font-size:13px;
-    padding:8px 10px;outline:none;border-radius:0;
-    transition:border-color .15s;
-  }
-  input::placeholder,textarea::placeholder{color:#46554c}
-  input:focus,select:focus,textarea:focus{border-color:var(--phosphor-dim)}
-  :focus-visible{outline:2px solid var(--phosphor);outline-offset:1px}
-  textarea{resize:vertical;min-height:74px}
-  select{appearance:none;
-    background-image:linear-gradient(45deg,transparent 50%,var(--copper) 50%),
-      linear-gradient(135deg,var(--copper) 50%,transparent 50%);
-    background-position:calc(100% - 16px) 55%,calc(100% - 11px) 55%;
-    background-size:5px 5px;background-repeat:no-repeat;padding-right:30px}
-  .chkrow{display:flex;gap:16px;flex-wrap:wrap;padding-top:4px}
-  .chk{display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;color:var(--text)}
-  .chk input{accent-color:var(--copper);width:14px;height:14px;cursor:pointer}
+  a.tool.modificar{border-top-color:var(--amber)}
+  a.tool.modificar .fase, a.tool.modificar .go{color:var(--amber)}
+  a.tool.modificar:hover{border-color:var(--amber);background:rgba(224,177,75,.05)}
 
-  /* ---------- Mapa de pines ---------- */
-  table.pins{width:100%;border-collapse:collapse;margin-bottom:8px}
-  table.pins th{font-size:10px;color:var(--text-dim);text-align:left;
-    letter-spacing:.1em;padding:0 8px 6px 0;font-weight:600}
-  table.pins td{padding:0 8px 8px 0;vertical-align:top}
-  td.gpiocell{width:110px}
-  td.delcell{width:34px}
-  .pinmsg{font-size:10.5px;margin-top:3px;display:block}
-  .pinmsg.err{color:var(--error)}
-  .pinmsg.warn{color:var(--warn)}
-  .pinmsg.ok{color:var(--phosphor-dim)}
-  button.mini{
-    background:transparent;border:1px solid var(--line);color:var(--text-dim);
-    font-family:var(--mono);font-size:12px;padding:5px 12px;cursor:pointer;
-    transition:all .15s;
-  }
-  button.mini:hover{border-color:var(--copper);color:var(--copper)}
-  button.del{padding:6px 9px;line-height:1}
-  button.del:hover{border-color:var(--error);color:var(--error)}
+  a.tool.eliminar{border-top-color:var(--rojo)}
+  a.tool.eliminar .fase, a.tool.eliminar .go{color:var(--rojo)}
+  a.tool.eliminar:hover{border-color:var(--rojo);background:rgba(224,106,90,.05)}
 
-  /* ---------- Acciones / salida ---------- */
-  .actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:6px 0 22px}
-  button.primary{
-    background:var(--copper);border:1px solid var(--copper);color:#16110b;
-    font-family:var(--mono);font-weight:700;font-size:13.5px;
-    letter-spacing:.04em;padding:11px 26px;cursor:pointer;
-    transition:filter .15s;
-  }
-  button.primary:hover{filter:brightness(1.12)}
-  button.ghost{
-    background:transparent;border:1px solid var(--line);color:var(--text);
-    font-family:var(--mono);font-size:13px;padding:10px 20px;cursor:pointer;
-    transition:all .15s;
-  }
-  button.ghost:hover{border-color:var(--phosphor-dim);color:var(--phosphor)}
-  .status{font-size:11.5px;color:var(--text-dim)}
-  .status b{color:var(--phosphor)}
+  a.tool.ensamblar{border-top-color:var(--phosphor)}
+  a.tool.ensamblar .fase, a.tool.ensamblar .go{color:var(--phosphor)}
+  a.tool.ensamblar:hover{border-color:var(--phosphor);background:rgba(124,227,160,.05)}
 
-  #salida{display:none}
-  #salida.show{display:block}
-  pre#promptOut{
-    background:var(--bg-field);border:1px solid var(--line);
-    padding:16px;white-space:pre-wrap;word-break:break-word;
-    font-size:12px;line-height:1.5;max-height:460px;overflow:auto;
-    color:#b9c6be;
-  }
-  pre#promptOut::selection{background:rgba(124,227,160,.25)}
+  /* Recordatorio del método */
+  .metodo{margin-top:34px;border:1px solid var(--line);background:var(--bg-panel)}
+  .metodo .mh{padding:11px 16px;border-bottom:1px solid var(--line);
+    font-size:11px;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase}
+  .metodo .mb{padding:14px 16px;font-size:12px;color:var(--text-dim);line-height:1.9}
+  .metodo .mb b{color:var(--text)}
 
-  footer{
-    max-width:1180px;margin:0 auto;padding:14px 24px 26px;
-    color:var(--phosphor-dim);font-size:11px;border-top:1px solid var(--line);
-  }
-
-  @media(max-width:840px){
-    .layout{grid-template-columns:1fr}
-    nav.fsm{position:static;display:flex;flex-wrap:wrap;gap:2px 18px;
-      padding:14px 18px;border-bottom:1px solid var(--line)}
-    .edge{display:none}
-    .fsm-title,.fsm-note{display:none}
-    main{border-left:none;padding:20px 14px 60px}
-    .grid2,.grid3{grid-template-columns:1fr}
-  }
+  footer{max-width:900px;margin:0 auto;padding:14px 24px 26px;
+    color:var(--phosphor-dim);font-size:11px;border-top:1px solid var(--line)}
+  footer a{color:var(--copper);text-decoration:none}
+  @media(max-width:680px){.tools{grid-template-columns:1fr}main{padding:22px 14px 60px}}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="hwrap">
-    <h1>PROMPT BUILDER — MÓDULOS FreeRTOS<span class="cursor"></span></h1>
-    <span class="htag">arquitectura <b>proyecto_base</b> · ESP32 · plug-and-play</span>
+<header><div class="hwrap">
+  <h1>PLANTILLA FreeRTOS — BANCO DE HERRAMIENTAS<span class="cursor"></span></h1>
+  <div class="sub">ciclo de vida de módulos ESP32 · arquitectura <b>proyecto_base</b> plug-and-play
+    · todo offline, un archivo por herramienta</div>
+</div></header>
+
+<main>
+
+  <!-- Diagrama del flujo de trabajo -->
+  <div class="flow" aria-label="Flujo de trabajo">
+    <span class="step"><span class="c1">CREAR</span> / <span class="c2">MODIFICAR</span> /
+      <span class="c3">ELIMINAR</span></span>
+    <span class="arrow">→</span>
+    <span class="step">copiar prompt</span>
+    <span class="arrow">→</span>
+    <span class="step">Claude</span>
+    <span class="arrow">→</span>
+    <span class="step"><span class="c4">ENSAMBLAR</span></span>
+    <span class="arrow">→</span>
+    <span class="step">reemplazar en el sketch → compilar</span>
   </div>
-</header>
 
-<div class="layout">
+  <!-- Tarjetas -->
+  <div class="tools">
 
-  <!-- FIRMA: navegación como máquina de estados -->
-  <nav class="fsm" aria-label="Estados del formulario">
-    <div class="fsm-title">Máquina de estados</div>
-    <a class="state" href="#secB1" data-sec="secB1"><span class="node"></span>B1 · HARDWARE <small id="cntB1"></small></a>
-    <div class="edge"></div>
-    <a class="state" href="#secB2" data-sec="secB2"><span class="node"></span>B2 · OPERACIÓN <small id="cntB2"></small></a>
-    <div class="edge"></div>
-    <a class="state" href="#secB3" data-sec="secB3"><span class="node"></span>B3 · GPIOs <small id="cntB3"></small></a>
-    <div class="edge"></div>
-    <a class="state" href="#secD" data-sec="secD"><span class="node"></span>D · ARCHIVOS <small id="cntD"></small></a>
-    <div class="edge"></div>
-    <a class="state" href="#salida" data-sec="salida"><span class="node"></span>GENERAR</a>
-    <div class="fsm-note">Los campos vacíos se marcan como
-      [PENDIENTE]: el asistente te los preguntará antes de generar código.</div>
-  </nav>
+    <a class="tool crear" href="plantilla_nuevo_hardware.html">
+      <div class="fase">Fase 1 · Crear</div>
+      <h2>Adicionar hardware</h2>
+      <p>Entrevista guiada: qué componente, qué hace según su máquina de
+         estados y en qué GPIOs va — con validación de pines del ESP32 en vivo
+         (flash, solo-entrada, strapping, conflictos).</p>
+      <span class="file">plantilla_nuevo_hardware.html</span>
+      <span class="go">abrir herramienta →</span>
+    </a>
 
-  <main>
+    <a class="tool modificar" href="mod_builder_freertos.html">
+      <div class="fase">Fase 2 · Modificar</div>
+      <h2>Cambiar el funcionamiento</h2>
+      <p>Describe el cambio en tus palabras y arrastra la carpeta del sketch:
+         Claude diagnostica qué archivos tocar. No necesitas saber dónde está
+         el código que cambia.</p>
+      <span class="file">mod_builder_freertos.html</span>
+      <span class="go">abrir herramienta →</span>
+    </a>
 
-    <!-- ============ B1 ============ -->
-    <section id="secB1">
-      <div class="sec-head"><span class="sec-id">B1</span><h2>¿Qué hardware se adiciona?</h2>
-        <span class="hint">componente · alimentación · librería</span></div>
-      <div class="sec-body">
-        <div class="grid2">
-          <div class="field"><label>Componente / módulo exacto <b>*</b></label>
-            <input type="text" id="b1_comp" placeholder="MPU6050, relé 5V, buzzer pasivo, NEO-6M..."></div>
-          <div class="field"><label>Variante de placa / breakout</label>
-            <input type="text" id="b1_var" placeholder="GY-521, Ra-01, SuperMini..."></div>
-        </div>
-        <div class="grid3">
-          <div class="field"><label>Alimentación</label>
-            <select id="b1_vcc">
-              <option value="">— sin definir —</option>
-              <option>3.3V</option><option>5V</option><option>3.3V y 5V (dual)</option>
-              <option>Otra (especificar en notas)</option>
-            </select></div>
-          <div class="field"><label>Niveles lógicos</label>
-            <select id="b1_logic">
-              <option value="">— sin definir —</option>
-              <option>3.3V (directo al ESP32)</option>
-              <option>5V — requiere level shifter</option>
-              <option>5V tolerante en entrada (verificado en datasheet)</option>
-            </select></div>
-          <div class="field"><label>Librería / driver</label>
-            <input type="text" id="b1_lib" placeholder="Adafruit_MPU6050, TinyGPSPlus, registro directo..."></div>
-        </div>
-      </div>
-    </section>
+    <a class="tool eliminar" href="del_builder_freertos.html">
+      <div class="fase">Fase 3 · Eliminar</div>
+      <h2>Quitar hardware</h2>
+      <p>Describe qué se va: Claude analiza dependencias, detecta módulos
+         huérfanos de eventos, y entrega la tabla BORRAR / REEMPLAZAR con
+         plan de prueba post-eliminación.</p>
+      <span class="file">del_builder_freertos.html</span>
+      <span class="go">abrir herramienta →</span>
+    </a>
 
-    <!-- ============ B2 ============ -->
-    <section id="secB2">
-      <div class="sec-head"><span class="sec-id">B2</span><h2>Operación según la máquina de estados</h2>
-        <span class="hint">estados · transiciones · acciones</span></div>
-      <div class="sec-body">
-        <div class="field"><label>Estados <b>*</b></label>
-          <input type="text" id="b2_states" placeholder="IDLE → ARMADO → ALERTA → DISPARADO"></div>
-        <div class="field"><label>Transiciones (evento o condición de cada una)</label>
-          <textarea id="b2_trans" placeholder="IDLE→ARMADO: al recibir SYS_EVT_X&#10;ARMADO→ALERTA: |a| > umbral durante N ms"></textarea></div>
-        <div class="field"><label>Acción en cada estado (qué hace, qué eventos publica/consume)</label>
-          <textarea id="b2_actions" placeholder="ALERTA: publica SYS_EVT_MOTION y parpadea LED cada 200 ms"></textarea></div>
-        <div class="grid2">
-          <div class="field"><label>Periodos / timeouts relevantes</label>
-            <input type="text" id="b2_timing" placeholder="muestreo 50 ms, ventana de alerta 10 s"></div>
-          <div class="field"><label>Persistencia entre reinicios (NVS)</label>
-            <input type="text" id="b2_nvs" placeholder="no / sí: estado armado + contador de eventos"></div>
-        </div>
-        <div class="chkrow">
-          <label class="chk"><input type="checkbox" id="b2_propose">
-            No tengo la máquina clara: que el asistente proponga una formal para mi aprobación</label>
-        </div>
-      </div>
-    </section>
+    <a class="tool ensamblar" href="ensamblador_fuentes.html">
+      <div class="fase">Paso final · Ensamblar</div>
+      <h2>Respuesta → archivos</h2>
+      <p>Pega la respuesta de Claude: extrae los archivos por los marcadores
+         ### FILE, valida errores típicos (setup()/loop() duplicados, String,
+         sin REGISTER_MODULE) y descarga todo en .zip.</p>
+      <span class="file">ensamblador_fuentes.html</span>
+      <span class="go">abrir herramienta →</span>
+    </a>
 
-    <!-- ============ B3 ============ -->
-    <section id="secB3">
-      <div class="sec-head"><span class="sec-id">B3</span><h2>Interfaz y mapa de GPIOs</h2>
-        <span class="hint">validación de pines en vivo</span></div>
-      <div class="sec-body">
-        <div class="field"><label>Interfaz con el procesador</label>
-          <div class="chkrow" id="b3_iface">
-            <label class="chk"><input type="checkbox" value="GPIO digital">GPIO digital</label>
-            <label class="chk"><input type="checkbox" value="ADC">ADC</label>
-            <label class="chk"><input type="checkbox" value="PWM (LEDC)">PWM (LEDC)</label>
-            <label class="chk"><input type="checkbox" value="I2C (bus de sistema)">I2C</label>
-            <label class="chk"><input type="checkbox" value="SPI">SPI</label>
-            <label class="chk"><input type="checkbox" value="UART">UART</label>
-            <label class="chk"><input type="checkbox" value="Interrupción externa">Interrupción</label>
-          </div>
-        </div>
+  </div>
 
-        <div class="field"><label>Mapa de conexiones (señal → GPIO)</label>
-          <table class="pins" id="pinTable">
-            <thead><tr><th>SEÑAL</th><th>GPIO</th><th>NOTA (polaridad, pull-up...)</th><th></th></tr></thead>
-            <tbody id="pinBody"></tbody>
-          </table>
-          <button class="mini" type="button" onclick="addPinRow()">+ agregar pin</button>
-        </div>
-
-        <div class="grid2">
-          <div class="field"><label>Dirección I2C / parámetros del bus (si aplica)</label>
-            <input type="text" id="b3_addr" placeholder="0x68 · UART2 9600 8N1 · SPI 10 MHz"></div>
-          <div class="field"><label>Pines YA ocupados en el proyecto</label>
-            <input type="text" id="b3_used" value="GPIO13=SCL, GPIO14=SDA, GPIO2=LED, GPIO5=pulsador">
-            <span class="pinmsg ok">Se usan para detectar conflictos en el mapa de arriba</span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ D ============ -->
-    <section id="secD">
-      <div class="sec-head"><span class="sec-id">D</span><h2>Archivos actuales del proyecto</h2>
-        <span class="hint">pegar contenido completo</span></div>
-      <div class="sec-body">
-        <div class="field"><label>modulo_plantilla.cpp</label>
-          <textarea id="d_plantilla" placeholder="// pegar contenido completo..."></textarea></div>
-        <div class="field"><label>sys_resources.h (enum SysEvent vigente)</label>
-          <textarea id="d_sysres" placeholder="// pegar contenido completo..."></textarea></div>
-        <div class="field"><label>app_config.h</label>
-          <textarea id="d_appcfg" placeholder="// pegar contenido completo..."></textarea></div>
-        <div class="field"><label>Otros módulos relevantes (o dejar vacío = "ninguno")</label>
-          <textarea id="d_otros" placeholder="// button.cpp, display_oled.cpp..."></textarea></div>
-      </div>
-    </section>
-
-    <!-- ============ SALIDA ============ -->
-    <div class="actions" id="genActions">
-      <button class="primary" type="button" onclick="generar()">GENERAR PROMPT</button>
-      <button class="ghost" type="button" onclick="copiar()" id="btnCopy">Copiar al portapapeles</button>
-      <span class="status" id="statusMsg">Listo. Los campos con <b>*</b> son los mínimos recomendados.</span>
+  <!-- Recordatorio del método -->
+  <div class="metodo">
+    <div class="mh">Reglas de oro del flujo</div>
+    <div class="mb">
+      <b>1.</b> Las tres primeras herramientas generan el prompt; el código siempre lo escribe Claude.<br>
+      <b>2.</b> La respuesta de cualquiera de las tres se procesa con el mismo <b>Ensamblador</b>.<br>
+      <b>3.</b> Tras agregar o borrar archivos del sketch: <b>cerrar y reabrir Arduino IDE</b> antes de compilar.<br>
+      <b>4.</b> Si al subir aparece "No changed sectors found", el archivo nuevo no entró al build (ver regla 3).<br>
+      <b>5.</b> Verificar siempre en el monitor serial (115200) la línea <b>[MODULES] init '...' OK</b> de cada módulo.
     </div>
+  </div>
 
-    <section id="salida">
-      <div class="sec-head"><span class="sec-id">&gt;_</span><h2>Prompt generado</h2>
-        <span class="hint" id="charCount"></span></div>
-      <div class="sec-body"><pre id="promptOut"></pre></div>
-    </section>
+</main>
 
-  </main>
-</div>
+<footer>REGISTER_MODULE("index", menuInit, menuStart, 0, true);
+&nbsp;·&nbsp; repo: <a href="https://github.com/khalifa63/plantilla_freertos">khalifa63/plantilla_freertos</a></footer>
 
-<footer>REGISTER_MODULE("prompt_builder", buildInit, buildStart, 200, false);
-&nbsp;·&nbsp; archivo único, sin dependencias, funciona offline</footer>
-
-<script>
-/* ============ SECCIÓN A: contrato fijo embebido ============ */
-const SECCION_A = `## SECCIÓN A — ROL Y CONTRATO DE ARQUITECTURA
-
-Actúa como un **ingeniero senior de sistemas embebidos especializado en FreeRTOS sobre ESP32** (ESP-IDF/Arduino core), con experiencia en firmware de producción: arquitecturas dirigidas por eventos, sincronización entre tareas, gestión de energía y validación de hardware en campo.
-
-Vas a generar los archivos para integrar hardware nuevo a un proyecto con arquitectura **plug-and-play de módulos**.
-
-**Contrato de la arquitectura (inviolable):**
-
-1. Cada hardware es UN archivo \`mi_hardware.cpp\` en la raíz del sketch, derivado de \`modulo_plantilla.cpp\`. Sin \`.h\` propio salvo justificación.
-2. NO se modifica el \`.ino\` ni \`module_manager.h/.cpp\`. \`app_config.h\` solo si cambia un bus de sistema. \`sys_resources.h\` solo para agregar eventos al enum \`SysEvent\`.
-3. Todo el estado del módulo es \`static\`. PROHIBIDO definir \`setup()\`, \`loop()\` o globales no-static (causa \`multiple definition\` en el linker).
-4. Configuración propia (pines, direcciones, periodos, stack, prioridad, core) en el bloque \`CONFIG DEL MÓDULO\` del propio \`.cpp\`, con \`#define\`.
-5. El módulo se inscribe con \`REGISTER_MODULE("nombre", initFn, startFn, prioridad, critico);\` Prioridades: 10=diagnóstico, 50=sensores/entradas, 100=salidas/UI, 200=opcionales. \`critico=true\` solo si el sistema no puede operar sin él.
-6. Acceso al bus I2C SIEMPRE entre \`i2cLock()\` / \`i2cUnlock()\` (timeout interno, nunca bloqueo indefinido).
-7. Comunicación entre módulos EXCLUSIVAMENTE por el bus de eventos: \`sysEventSend(evt)\` / \`sysEventReceive(&evt, timeoutMs)\`. Nunca variables globales compartidas.
-8. La lógica del módulo se implementa como **máquina de estados explícita** (enum de estados + switch en la tarea), no como flags booleanos sueltos.
-9. \`vTaskDelayUntil\` para cadencias fijas; espera en cola con timeout para lógica dirigida por eventos; \`portMAX_DELAY\` si el módulo duerme hasta ser notificado.
-10. \`char[]\` + \`snprintf\`, nunca \`String\`, en estructuras de alta frecuencia.
-11. \`init()\` devuelve \`false\` si el hardware no responde, con log \`[WARN]\`/\`[FATAL]\` explicando causa probable y verificación sugerida.
-12. ISRs: mínimas, en IRAM si aplica, comunicando con la tarea por \`xQueueSendFromISR\`/\`xTaskNotifyFromISR\` + \`portYIELD_FROM_ISR\`. Nada de lógica ni I2C dentro de la ISR.
-13. Comentarios en español; encabezado del archivo con propósito, conexiones físicas y descripción de la máquina de estados.
-
-**Regla de entrevista:** si en la SECCIÓN B encuentras campos marcados [PENDIENTE] o ambiguos, DETENTE y pregúntamelos uno por uno antes de escribir código. No inventes valores.
-
-**Validación obligatoria de pines (ESP32 clásico):** GPIO6–11 prohibidos (flash); GPIO34–39 solo entrada, sin pull interno; strapping pins 0/2/5/12/15 con restricciones en boot; ADC2 inutilizable con WiFi activo; verifica conflictos con los pines ocupados listados. Propón alternativa si hay conflicto.`;
-
-const SECCION_C = `## SECCIÓN C — ENTREGABLES
-
-Una vez confirmada la SECCIÓN B, genera en este orden:
-
-1. **Resumen de diseño** (antes del código): máquina de estados en tabla (estado | evento | acción | siguiente estado), tarea(s) propuestas con core/prioridad/stack justificados, y eventos nuevos para \`SysEvent\`.
-2. **\`mi_hardware.cpp\`** completo y listo para compilar (sin fragmentos ni "resto igual"), siguiendo el contrato de la SECCIÓN A.
-3. **\`sys_resources.h\` actualizado COMPLETO** solo si se agregaron eventos al enum (si no, indica "sin cambios").
-4. **Librerías a instalar** con nombre exacto en Library Manager y versión.
-5. **Checklist físico pre-flasheo**: cableado pin a pin, alimentación, pull-ups, polaridades, y qué esperar en el monitor serial en el primer boot (incluyendo la línea \`[MODULES] init '...' ... OK\`).
-6. **Plan de prueba**: pasos para validar cada estado y transición de la máquina de estados con hardware real.`;
-
-/* ============ Validación de GPIOs ESP32 ============ */
-function validarGPIO(n, usados){
-  if(isNaN(n)) return null;
-  if(n<0 || n>39) return {t:'err', m:'No existe en el ESP32 (rango 0–39)'};
-  if(n>=6 && n<=11) return {t:'err', m:'PROHIBIDO: conectado a la flash SPI'};
-  if(usados.has(n)) return {t:'err', m:'CONFLICTO: ya ocupado ('+usados.get(n)+')'};
-  if(n>=34) return {t:'warn', m:'Solo ENTRADA, sin pull-up/down interno'};
-  if([0,2,5,12,15].includes(n)) return {t:'warn', m:'Strapping pin: restricciones en boot'};
-  if(n===20 || n===24 || (n>=28&&n<=31)) return {t:'err', m:'No expuesto en el ESP32 clásico'};
-  return {t:'ok', m:'OK'};
-}
-function pinesOcupados(){
-  const map = new Map();
-  const txt = document.getElementById('b3_used').value;
-  const re = /GPIO\s*(\d+)\s*=?\s*([^,]*)/gi; let m;
-  while((m = re.exec(txt)) !== null){ map.set(parseInt(m[1]), m[2].trim()||'sistema'); }
-  return map;
-}
-
-/* ============ Filas dinámicas del mapa de pines ============ */
-let pinSeq = 0;
-function addPinRow(sig, gpio, nota){
-  const tb = document.getElementById('pinBody');
-  const tr = document.createElement('tr');
-  const id = 'pin'+(pinSeq++);
-  tr.innerHTML =
-    '<td><input type="text" class="p-sig" placeholder="INT, DATA, EN..." value="'+(sig||'')+'"></td>'+
-    '<td class="gpiocell"><input type="text" class="p-gpio" inputmode="numeric" placeholder="4" value="'+(gpio||'')+'">'+
-      '<span class="pinmsg" id="'+id+'"></span></td>'+
-    '<td><input type="text" class="p-nota" placeholder="activo en bajo, pull-up interno..." value="'+(nota||'')+'"></td>'+
-    '<td class="delcell"><button class="mini del" type="button" title="Eliminar fila">×</button></td>';
-  tb.appendChild(tr);
-  const g = tr.querySelector('.p-gpio'), msg = tr.querySelector('.pinmsg');
-  const check = ()=>{
-    const v = validarGPIO(parseInt(g.value,10), pinesOcupados());
-    msg.textContent = v ? '» '+v.m : '';
-    msg.className = 'pinmsg ' + (v ? v.t : '');
-    refreshFSM();
-  };
-  g.addEventListener('input', check);
-  tr.querySelector('.del').addEventListener('click', ()=>{ tr.remove(); refreshFSM(); });
-}
-document.getElementById('b3_used').addEventListener('input', ()=>{
-  document.querySelectorAll('#pinBody .p-gpio').forEach(g=>g.dispatchEvent(new Event('input')));
-});
-addPinRow();
-
-/* ============ Helpers de captura ============ */
-const PEND = '[PENDIENTE — preguntar al usuario]';
-const val  = id => document.getElementById(id).value.trim();
-const orP  = id => val(id) || PEND;
-const orNone = id => val(id) || 'ninguno';
-
-function mapaPines(){
-  const rows = [...document.querySelectorAll('#pinBody tr')];
-  const lines = rows.map(tr=>{
-    const s = tr.querySelector('.p-sig').value.trim();
-    const g = tr.querySelector('.p-gpio').value.trim();
-    const n = tr.querySelector('.p-nota').value.trim();
-    if(!s && !g) return null;
-    return '- ' + (s||'señal?') + ' → GPIO' + (g||'?') + (n ? ' ('+n+')' : '');
-  }).filter(Boolean);
-  return lines.length ? lines.join('\n') : PEND;
-}
-function interfaces(){
-  const c = [...document.querySelectorAll('#b3_iface input:checked')].map(x=>x.value);
-  return c.length ? c.join(', ') : PEND;
-}
-function bloqueCodigo(id){
-  const v = val(id);
-  return v ? '```cpp\n'+v+'\n```' : '```\n[NO PEGADO — pedir al usuario si lo necesitas]\n```';
-}
-
-/* ============ Generación del prompt ============ */
-function generar(){
-  const b2prop = document.getElementById('b2_propose').checked
-    ? '\n> NOTA: no tengo la máquina de estados definida del todo. ' +
-      'A partir de lo anterior, PROPÓN tú la máquina formal (tabla estado/evento/acción/siguiente) y espera mi aprobación antes de codificar.'
-    : '';
-
-  const prompt =
-`# SOLICITUD — Integración de hardware nuevo (arquitectura proyecto_base)
-
-${SECCION_A}
-
----
-
-## SECCIÓN B — ESPECIFICACIÓN DEL HARDWARE
-
-### B1. Hardware que se adiciona
-- Componente / módulo exacto: ${orP('b1_comp')}
-- Variante de placa: ${orNone('b1_var')}
-- Alimentación: ${orP('b1_vcc')}
-- Niveles lógicos: ${orP('b1_logic')}
-- Librería / driver: ${orP('b1_lib')}
-
-### B2. Operación según la máquina de estados
-- Estados: ${orP('b2_states')}
-- Transiciones: ${orP('b2_trans')}
-- Acción en cada estado: ${orP('b2_actions')}
-- Periodos / timeouts: ${orP('b2_timing')}
-- Persistencia NVS: ${orP('b2_nvs')}${b2prop}
-
-### B3. Interfaz y conexiones
-- Interfaz con el procesador: ${interfaces()}
-- Mapa de conexiones:
-${mapaPines()}
-- Dirección / parámetros del bus: ${orNone('b3_addr')}
-- Pines YA ocupados en el proyecto: ${orP('b3_used')}
-
----
-
-${SECCION_C}
-
----
-
-## SECCIÓN D — ARCHIVOS ACTUALES DEL PROYECTO
-
-### modulo_plantilla.cpp
-${bloqueCodigo('d_plantilla')}
-
-### sys_resources.h
-${bloqueCodigo('d_sysres')}
-
-### app_config.h
-${bloqueCodigo('d_appcfg')}
-
-### Otros módulos relevantes
-${val('d_otros') ? '```cpp\n'+val('d_otros')+'\n```' : 'ninguno'}
-`;
-
-  const out = document.getElementById('promptOut');
-  out.textContent = prompt;
-  document.getElementById('salida').classList.add('show');
-  document.getElementById('charCount').textContent = prompt.length.toLocaleString('es') + ' caracteres';
-  const pend = (prompt.match(/\[PENDIENTE/g)||[]).length;
-  document.getElementById('statusMsg').innerHTML = pend
-    ? 'Generado con <b>'+pend+'</b> campo(s) pendiente(s): el asistente te los preguntará.'
-    : 'Generado <b>sin pendientes</b>: el asistente puede codificar directo.';
-  document.getElementById('salida').scrollIntoView({behavior:'smooth'});
-}
-
-function copiar(){
-  const txt = document.getElementById('promptOut').textContent;
-  if(!txt){ generar(); }
-  const final = document.getElementById('promptOut').textContent;
-  const done = ()=>{ const b=document.getElementById('btnCopy');
-    b.textContent='✓ Copiado'; setTimeout(()=>b.textContent='Copiar al portapapeles',1600); };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(final).then(done).catch(()=>fallbackCopy(final,done));
-  } else { fallbackCopy(final,done); }
-}
-function fallbackCopy(t,done){
-  const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta);
-  ta.select(); try{document.execCommand('copy'); done();}catch(e){} document.body.removeChild(ta);
-}
-
-/* ============ FSM del rail: done / active ============ */
-const SECS = {
-  secB1: ['b1_comp','b1_vcc','b1_logic','b1_lib'],
-  secB2: ['b2_states','b2_trans','b2_actions'],
-  secB3: [],   // se evalúa aparte (pines + interfaz)
-  secD:  ['d_plantilla','d_sysres','d_appcfg'],
-};
-function countFilled(ids){ return ids.filter(id=>val(id)).length; }
-function b3Filled(){
-  const iface = document.querySelectorAll('#b3_iface input:checked').length>0 ? 1:0;
-  const pins  = [...document.querySelectorAll('#pinBody .p-gpio')].some(g=>g.value.trim()) ? 1:0;
-  return {n: iface+pins, total: 2};
-}
-function refreshFSM(){
-  const set = (sec, n, total)=>{
-    const a = document.querySelector('.state[data-sec="'+sec+'"]');
-    const c = document.getElementById('cnt'+sec.replace('sec',''));
-    if(c) c.textContent = n+'/'+total;
-    a.classList.toggle('done', n>=Math.max(1, total-1) && n>0 && n===total);
-  };
-  set('secB1', countFilled(SECS.secB1), SECS.secB1.length);
-  set('secB2', countFilled(SECS.secB2), SECS.secB2.length);
-  const b3 = b3Filled(); set('secB3', b3.n, b3.total);
-  set('secD', countFilled(SECS.secD), SECS.secD.length);
-}
-document.querySelectorAll('input,textarea,select').forEach(el=>
-  el.addEventListener('input', refreshFSM));
-refreshFSM();
-
-/* Estado activo según scroll */
-const observer = new IntersectionObserver(entries=>{
-  entries.forEach(e=>{
-    if(e.isIntersecting){
-      document.querySelectorAll('.state').forEach(s=>s.classList.remove('active'));
-      const a = document.querySelector('.state[data-sec="'+e.target.id+'"]');
-      if(a) a.classList.add('active');
-    }
-  });
-},{rootMargin:'-30% 0px -60% 0px'});
-['secB1','secB2','secB3','secD','salida'].forEach(id=>{
-  const el = document.getElementById(id); if(el) observer.observe(el);
-});
-</script>
 </body>
 </html>
