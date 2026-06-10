@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DEL Builder — Eliminar hardware del sketch</title>
+<style>
+  /* Identidad del banco de trabajo: máscara de soldadura, cobre,
+     fósforo, monoespaciada. Fase de DESOLDADO = acento rojo.
+     Mismo flujo de 3 acciones que el MOD Builder: describir →
+     cargar carpeta → generar y copiar. */
+  :root{
+    --bg:#0e1411; --bg-panel:#131b17; --bg-field:#0a100d;
+    --line:#24332b; --line-soft:#1a2620;
+    --copper:#d18a4b; --copper-dim:#8a5a30;
+    --rojo:#e06a5a;
+    --phosphor:#7ce3a0; --phosphor-dim:#3f7a58;
+    --text:#cfd9d2; --text-dim:#7d8c83; --warn:#e0b14b;
+    --mono:"Cascadia Code","JetBrains Mono","Fira Code",ui-monospace,"SF Mono",Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  body{background:var(--bg);
+    background-image:linear-gradient(var(--line-soft) 1px,transparent 1px),
+      linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+    background-size:32px 32px;color:var(--text);font-family:var(--mono);
+    font-size:14px;line-height:1.55;min-height:100vh}
+  header{border-bottom:1px solid var(--line);padding:22px 24px 18px;
+    background:linear-gradient(180deg,#121a16 0%,var(--bg) 100%)}
+  .hwrap{max-width:980px;margin:0 auto;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  h1{font-size:17px;font-weight:700;letter-spacing:.04em;color:var(--rojo)}
+  h1 .cursor{display:inline-block;width:9px;height:16px;background:var(--rojo);
+    vertical-align:-2px;margin-left:4px;animation:blink 1.1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .htag{color:var(--text-dim);font-size:12px}
+  .htag b{color:var(--copper)}
+  main{max-width:980px;margin:0 auto;padding:28px 24px 80px}
+  .pipeline{font-size:10.5px;color:var(--text-dim);padding:10px 18px;
+    border:1px dashed var(--copper-dim);margin-bottom:26px}
+  .pipeline b{color:var(--copper)}
+  section{background:var(--bg-panel);border:1px solid var(--line);margin-bottom:26px}
+  .sec-head{display:flex;align-items:baseline;gap:12px;padding:13px 18px;
+    border-bottom:1px solid var(--line);background:rgba(224,106,90,.05)}
+  .sec-id{color:var(--rojo);font-weight:700;font-size:15px;min-width:22px}
+  .sec-head h2{font-size:13.5px;font-weight:600}
+  .sec-head .hint{margin-left:auto;font-size:10.5px;color:var(--text-dim)}
+  .sec-body{padding:18px}
+  label{display:block;font-size:11px;color:var(--text-dim);letter-spacing:.05em;margin-bottom:5px}
+  textarea{width:100%;background:var(--bg-field);border:1px solid var(--line);
+    color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 12px;
+    outline:none;resize:vertical;border-radius:0;transition:border-color .15s}
+  textarea:focus{border-color:var(--phosphor-dim)}
+  textarea::placeholder{color:#46554c}
+  :focus-visible{outline:2px solid var(--rojo);outline-offset:1px}
+  #eliminar{min-height:120px;font-size:14px}
+  #nocambia{min-height:60px}
+  .field{margin-bottom:14px}
+  .ejemplos{font-size:11px;color:var(--text-dim);margin-top:6px;line-height:1.7}
+  .ejemplos b{color:var(--phosphor-dim);font-weight:600}
+  .alerta{font-size:11px;color:var(--warn);border-left:2px solid var(--warn);
+    padding:6px 10px;margin-top:10px;line-height:1.6}
+
+  .dropzone{border:1.5px dashed var(--copper-dim);padding:22px 18px;text-align:center;
+    cursor:pointer;transition:all .15s;background:var(--bg-field)}
+  .dropzone:hover,.dropzone.over{border-color:var(--rojo);background:rgba(224,106,90,.04)}
+  .dropzone .big{font-size:13.5px;color:var(--text)}
+  .dropzone .small{font-size:11px;color:var(--text-dim);margin-top:4px}
+  input[type=file]{display:none}
+  .flist{margin-top:12px}
+  .frow{display:flex;align-items:center;gap:10px;padding:6px 10px;
+    border:1px solid var(--line);border-top:none;font-size:12px}
+  .frow:first-child{border-top:1px solid var(--line)}
+  .frow .nm{color:var(--phosphor)}
+  .frow .sz{color:var(--text-dim);font-size:10.5px;margin-left:auto}
+  .frow button{background:transparent;border:none;color:var(--text-dim);cursor:pointer;
+    font-family:var(--mono);font-size:13px;padding:0 4px}
+  .frow button:hover{color:var(--rojo)}
+
+  .actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:6px 0 22px}
+  button.primary{background:var(--rojo);border:1px solid var(--rojo);color:#16110b;
+    font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.04em;
+    padding:13px 30px;cursor:pointer;transition:filter .15s}
+  button.primary:hover{filter:brightness(1.12)}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);
+    font-family:var(--mono);font-size:13px;padding:11px 20px;cursor:pointer;transition:all .15s}
+  button.ghost:hover{border-color:var(--phosphor-dim);color:var(--phosphor)}
+  .status{font-size:11.5px;color:var(--text-dim)} .status b{color:var(--phosphor)}
+  .status .err{color:var(--rojo);font-weight:700}
+  #salida{display:none} #salida.show{display:block}
+  pre#promptOut{background:var(--bg-field);border:1px solid var(--line);padding:16px;
+    white-space:pre-wrap;word-break:break-word;font-size:11.5px;line-height:1.5;
+    max-height:380px;overflow:auto;color:#b9c6be}
+  footer{max-width:980px;margin:0 auto;padding:14px 24px 26px;color:var(--phosphor-dim);
+    font-size:11px;border-top:1px solid var(--line)}
+  @media(max-width:700px){main{padding:20px 14px 60px}}
+</style>
+</head>
+<body>
+
+<header><div class="hwrap">
+  <h1>DEL BUILDER — ELIMINAR HARDWARE<span class="cursor"></span></h1>
+  <span class="htag">describe qué se va · <b>Claude analiza dependencias</b> · paso 1 de 2</span>
+</div></header>
+
+<main>
+  <div class="pipeline">FLUJO (3 acciones): <b>①</b> cargar la carpeta del sketch y escribir
+    qué quieres eliminar &nbsp;→&nbsp; <b>②</b> GENERAR Y COPIAR, pegar en Claude &nbsp;→&nbsp;
+    <b>③</b> pegar la respuesta en el <b>Ensamblador de fuentes</b>, descargar los archivos
+    modificados y <b>borrar a mano</b> los que la tabla marque como BORRAR.</div>
+
+  <!-- ===== 1: QUÉ SE ELIMINA ===== -->
+  <section>
+    <div class="sec-head"><span class="sec-id">①</span>
+      <h2>¿Qué hardware o funcionalidad quieres eliminar?</h2>
+      <span class="hint">en tus palabras — sin nombres de archivos</span></div>
+    <div class="sec-body">
+      <div class="field">
+        <textarea id="eliminar" placeholder="Describe qué se va, como se lo dirías a un colega.&#10;&#10;Ejemplo: quitar el pulsador; la pantalla ya no debe depender de él y debe quedar siempre encendida."></textarea>
+        <div class="ejemplos">
+          Sirven cosas como: <b>"quitar el GPS y todo lo relacionado"</b> ·
+          <b>"ya no quiero la pantalla OLED"</b> ·
+          <b>"eliminar el parpadeo del LED de GPIO4"</b> ·
+          <b>"quitar el buzzer pero conservar sus eventos para un relé futuro"</b>
+        </div>
+      </div>
+      <div class="field">
+        <label>¿Qué debe seguir funcionando EXACTAMENTE igual? (opcional pero recomendado)</label>
+        <textarea id="nocambia" placeholder="ej. el heartbeat y el display siguen como están"></textarea>
+      </div>
+      <div class="alerta">⚠ Eliminar es más delicado que agregar: otros módulos pueden depender
+        de los eventos del que se va. El prompt obliga a Claude a detectar esos "huérfanos"
+        y preguntarte qué hacer con cada uno antes de tocar código.</div>
+    </div>
+  </section>
+
+  <!-- ===== 2: ARCHIVOS ===== -->
+  <section>
+    <div class="sec-head"><span class="sec-id">②</span>
+      <h2>Archivos del sketch actual</h2>
+      <span class="hint">se incrustan en el prompt automáticamente</span></div>
+    <div class="sec-body">
+      <div class="dropzone" id="dz" tabindex="0" role="button"
+           aria-label="Cargar archivos del sketch">
+        <div class="big">Arrastra aquí la carpeta del sketch — o haz clic para elegir</div>
+        <div class="small">Se toman solo .ino .cpp .h .md .ini (lo demás se ignora solo)</div>
+      </div>
+      <input type="file" id="pickFolder" webkitdirectory>
+      <input type="file" id="pickFiles" multiple accept=".ino,.cpp,.h,.hpp,.c,.md,.ini,.txt">
+      <div class="actions" style="margin:12px 0 0">
+        <button class="ghost" type="button" onclick="document.getElementById('pickFolder').click()">Elegir carpeta…</button>
+        <button class="ghost" type="button" onclick="document.getElementById('pickFiles').click()">Elegir archivos sueltos…</button>
+        <span class="status" id="fStatus">Sin archivos cargados.</span>
+      </div>
+      <div class="flist" id="flist"></div>
+    </div>
+  </section>
+
+  <!-- ===== 3: GENERAR ===== -->
+  <div class="actions">
+    <button class="primary" type="button" onclick="generarYCopiar()">GENERAR Y COPIAR PROMPT</button>
+    <button class="ghost" type="button" onclick="document.getElementById('salida').classList.toggle('show')">ver/ocultar prompt</button>
+    <span class="status" id="statusMsg">Luego solo pégalo en Claude (Ctrl+V) y envía.</span>
+  </div>
+
+  <section id="salida">
+    <div class="sec-head"><span class="sec-id">&gt;_</span><h2>Prompt generado</h2>
+      <span class="hint" id="charCount"></span></div>
+    <div class="sec-body"><pre id="promptOut"></pre></div>
+  </section>
+</main>
+
+<footer>REGISTER_MODULE("del_builder", desolderInit, desolderStart, 200, false);
+&nbsp;·&nbsp; la respuesta de Claude se procesa en el Ensamblador de fuentes (paso 2)</footer>
+
+<script>
+/* ============ Carga de archivos del sketch (igual que MOD Builder) ============ */
+const VALID_EXT = /\.(ino|cpp|h|hpp|c|md|ini|txt)$/i;
+const MAX_FILE_KB = 300;
+let SKETCH_FILES = [];
+
+const dz = document.getElementById('dz');
+dz.addEventListener('click', ()=>document.getElementById('pickFolder').click());
+dz.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' ')
+  document.getElementById('pickFolder').click(); });
+['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev, e=>{
+  e.preventDefault(); dz.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev, e=>{
+  e.preventDefault(); dz.classList.remove('over');}));
+dz.addEventListener('drop', async e=>{
+  const items = [...e.dataTransfer.items];
+  const files = [];
+  const walk = entry => new Promise(res=>{
+    if(entry.isFile){ entry.file(f=>{ files.push(f); res(); }); }
+    else if(entry.isDirectory){
+      const rd = entry.createReader();
+      rd.readEntries(async ents=>{ for(const en of ents) await walk(en); res(); });
+    } else res();
+  });
+  for(const it of items){
+    const en = it.webkitGetAsEntry && it.webkitGetAsEntry();
+    if(en) await walk(en);
+    else if(it.kind==='file') files.push(it.getAsFile());
+  }
+  cargar(files);
+});
+document.getElementById('pickFolder').addEventListener('change', e=>cargar([...e.target.files]));
+document.getElementById('pickFiles').addEventListener('change', e=>cargar([...e.target.files]));
+
+function cargar(fileList){
+  const candidatos = fileList.filter(f=>VALID_EXT.test(f.name) && f.size <= MAX_FILE_KB*1024);
+  const ignorados = fileList.length - candidatos.length;
+  let pendientes = candidatos.length;
+  if(!pendientes){ setF('Ningún archivo válido (.ino/.cpp/.h...).', true); return; }
+  candidatos.forEach(f=>{
+    const r = new FileReader();
+    r.onload = ()=>{
+      SKETCH_FILES = SKETCH_FILES.filter(x=>x.name !== f.name);
+      SKETCH_FILES.push({name: f.name, content: r.result});
+      if(--pendientes === 0){ pintar(ignorados); }
+    };
+    r.readAsText(f);
+  });
+}
+function pintar(ignorados){
+  const peso = n => /\.ino$/i.test(n)?0 : /\.h(pp)?$/i.test(n)?1 : /\.c(pp)?$/i.test(n)?2 : 3;
+  SKETCH_FILES.sort((a,b)=> peso(a.name)-peso(b.name) || a.name.localeCompare(b.name));
+  const w = document.getElementById('flist'); w.innerHTML='';
+  SKETCH_FILES.forEach((f,i)=>{
+    const row = document.createElement('div'); row.className='frow';
+    row.innerHTML = '<span class="nm">'+f.name+'</span>'+
+      '<span class="sz">'+f.content.length.toLocaleString('es')+' car.</span>'+
+      '<button title="Quitar" aria-label="Quitar '+f.name+'">×</button>';
+    row.querySelector('button').addEventListener('click', ()=>{
+      SKETCH_FILES.splice(i,1); pintar(0);
+    });
+    w.appendChild(row);
+  });
+  setF(SKETCH_FILES.length+' archivo(s) cargado(s)'+
+       (ignorados>0 ? ' · '+ignorados+' ignorado(s) (binarios u otros)' : '')+'.', false);
+}
+function setF(msg, err){
+  document.getElementById('fStatus').innerHTML = err ? '<span class="err">'+msg+'</span>' : '<b>'+msg+'</b>';
+}
+
+/* ============ Generación del prompt de ELIMINACIÓN ============ */
+function generarPrompt(){
+  const eliminar = document.getElementById('eliminar').value.trim();
+  const nocambia = document.getElementById('nocambia').value.trim();
+
+  const archivos = SKETCH_FILES.map(f=>
+    '### FILE: '+f.name+'\n```cpp\n'+f.content.replace(/\s+$/,'')+'\n```'
+  ).join('\n\n');
+
+  return `# SOLICITUD — Eliminar hardware de un sketch ESP32 + FreeRTOS (arquitectura proyecto_base)
+
+Actúa como un **ingeniero senior de sistemas embebidos especializado en FreeRTOS sobre ESP32**. Abajo está el código fuente COMPLETO de mi proyecto y la descripción del hardware o funcionalidad que quiero ELIMINAR. **Yo no sé qué archivos hay que borrar ni cuáles hay que modificar: ese diagnóstico es tu trabajo.** Eliminar es más delicado que agregar: otros módulos pueden depender de lo que se va.
+
+## LO QUE QUIERO ELIMINAR (en mis palabras)
+${eliminar || '[PENDIENTE — el usuario no describió qué eliminar: pregúntale antes de continuar]'}
+
+## LO QUE DEBE SEGUIR FUNCIONANDO IGUAL
+${nocambia || 'Todo lo no eliminado debe conservar su comportamiento actual.'}
+
+## TU PROCESO (en este orden)
+
+1. **Diagnóstico de identidad**: determina QUÉ módulo(s)/archivo(s) implementan lo que pido eliminar. Si mi descripción es ambigua (ej. hay dos LEDs y digo "quita el LED"), DETENTE y pregúntame con opciones concretas (a/b/c).
+
+2. **Análisis de dependencias (obligatorio antes de tocar nada)**:
+   - **Eventos**: lista los \`SysEvent\` que el módulo PUBLICA y los que CONSUME. Por cada evento que publica, identifica qué módulos lo consumen: quedarán "huérfanos". Por cada huérfano, proponme qué hacer (a: el consumidor también se elimina, b: el consumidor se adapta a vivir sin el evento, c: otro módulo pasa a publicarlo) y espera mi decisión si hay más de una opción razonable.
+   - **Recursos compartidos**: indica qué queda libre (pines liberados, eventos a retirar del enum, librerías sin más usuarios).
+   - **Criticidad**: si el módulo estaba registrado con \`critico=true\`, adviérteme el impacto en el arranque.
+
+3. **Implementación**: genera SOLO los archivos que CAMBIAN, cada uno COMPLETO. Los archivos a BORRAR no se generan: van en la tabla de instrucciones.
+   - Retira del enum \`SysEvent\` los eventos que quedan sin productor NI consumidor (documéntalos en un comentario "eliminados").
+   - Limpia en los módulos restantes todo manejo de eventos retirados (ramas muertas), sin alterar su demás comportamiento.
+   - NO dejes código comentado "por si acaso": eliminación limpia.
+
+4. **Instrucciones de ejecución**: tabla final con cada archivo y su acción — **BORRAR / REEMPLAZAR / SIN CAMBIOS** — en orden seguro de aplicación. Incluye: librerías que ya pueden desinstalarse (solo si ningún otro módulo las usa), pines que quedan libres para hardware futuro, y el recordatorio de cerrar y reabrir el sketch en Arduino IDE tras borrar archivos.
+
+5. **Plan de prueba post-eliminación**:
+   - Qué debe mostrar el monitor serial en el boot: número de módulos esperado en \`[MODULES] N modulo(s) registrados\` y qué líneas de init ya NO deben aparecer.
+   - Cómo verificar que cada funcionalidad superviviente sigue intacta.
+   - Qué hacer físicamente con el hardware desconectado (ej. retirar cableado del pin liberado para evitar entradas flotantes).
+
+## CONTRATO DE LA ARQUITECTURA (inviolable)
+- El \`.ino\` y \`module_manager.h/.cpp\` NO se modifican. Eliminar un módulo es: borrar su \`.cpp\` + limpiar \`sys_resources.h\` si quedan eventos sin uso + adaptar módulos huérfanos si los hay. Nada más.
+- Los módulos restantes siguen el contrato: estado \`static\`, sin \`setup()\`/\`loop()\`, config en su \`CONFIG DEL MÓDULO\`, \`REGISTER_MODULE\`, I2C entre \`i2cLock()\`/\`i2cUnlock()\`, comunicación solo por \`sysEventSend\`/\`sysEventReceive\`, máquina de estados explícita, \`char[]\`+\`snprintf\`, \`vTaskDelayUntil\` o espera en cola según su diseño.
+- Si algo es ambiguo, pregunta antes de codificar. No inventes decisiones.
+
+## FORMATO DE SALIDA OBLIGATORIO (lo procesa una herramienta automática)
+Cada archivo MODIFICADO, completo, precedido por la línea exacta:
+\`### FILE: nombre_archivo.ext\`
+seguida de un bloque de código cercado. Jamás fragmentos ni "// el resto queda igual". Los archivos a borrar NO llevan marcador: solo aparecen en la tabla de instrucciones con acción BORRAR.
+
+---
+
+## CÓDIGO FUENTE ACTUAL DEL PROYECTO (${SKETCH_FILES.length} archivo(s))
+
+${archivos || '[SIN ARCHIVOS — pídele al usuario que adjunte o pegue los fuentes del sketch]'}
+`;
+}
+
+function generarYCopiar(){
+  const p = generarPrompt();
+  document.getElementById('promptOut').textContent = p;
+  document.getElementById('charCount').textContent = p.length.toLocaleString('es')+' caracteres';
+
+  const sinDesc  = !document.getElementById('eliminar').value.trim();
+  const sinFiles = SKETCH_FILES.length === 0;
+  let aviso = '';
+  if(sinDesc)  aviso += '<span class="err">Falta describir qué eliminar (①). </span>';
+  if(sinFiles) aviso += '<span class="err">No hay archivos cargados (②). </span>';
+
+  const fin = ok => {
+    document.getElementById('statusMsg').innerHTML = aviso +
+      (ok ? '<b>✓ Copiado.</b> Pégalo en Claude (Ctrl+V) y envía. La respuesta va al Ensamblador.'
+          : 'Generado. Copia manualmente desde el panel de abajo.');
+    if(!ok) document.getElementById('salida').classList.add('show');
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(p).then(()=>fin(true)).catch(()=>{fbCopy(p); fin(true);});
+  } else { fbCopy(p); fin(true); }
+}
+function fbCopy(t){const ta=document.createElement('textarea');ta.value=t;
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
+</script>
+</body>
+</html>
